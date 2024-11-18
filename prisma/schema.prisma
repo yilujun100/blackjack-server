@@ -1,0 +1,180 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id @default(uuid())
+  level Int    @default(0)
+  exp   Int    @default(0)
+  image String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuthAccount {
+  id         String @id @default(uuid())
+  type       String // telegram
+  identifier String
+  userId     String
+  extraData  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, identifier])
+  @@index([userId])
+}
+
+model Level {
+  id    String @id @default(uuid())
+  level Int
+  exp   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Asset {
+  id     String @id @default(uuid())
+  userId String
+  type   String // jack
+  amount Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model Setting {
+  id       String  @id @default(uuid())
+  userId   String  @unique
+  language String
+  sound    Boolean @default(true)
+  notify   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model CheckInReward {
+  id     String @id @default(uuid())
+  day    Int
+  reward Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CheckInRecord {
+  id     String @id @default(uuid())
+  userId String
+  day    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Achievement {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  level       Int
+  reward      Int
+  requirement Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserAchievement {
+  id            String @id @default(uuid())
+  userId        String
+  achievementId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([achievementId])
+}
+
+model ContestMatch {
+  id        String @id @default(uuid())
+  name      String
+  ticket    Int
+  maxReward Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContestReward {
+  id             String @id @default(uuid())
+  contestMatchId String
+  reward         Int
+  probability    Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contestMatchId])
+}
+
+model Task {
+  id      String    @id @default(uuid())
+  name    String
+  reward  Int
+  image   String
+  expired DateTime?
+  type    String // daily, collab
+  url     String?
+  urlType String? // web, telegram
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaskRecord {
+  id     String @id @default(uuid())
+  userId String
+  taskId String
+  status String // unchecked, checked, claimed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, taskId])
+  @@index([userId])
+  @@index([taskId])
+}
+
+model TransferQueue {
+  id        String @id @default(uuid())
+  fromId    String
+  toId      String
+  assetType String // jack
+  amount    Float
+  status    String // pending, success, failed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromId])
+  @@index([toId])
+}
