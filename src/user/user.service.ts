@@ -4,6 +4,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { v4 } from 'uuid';
 import { parse, validate } from '@telegram-apps/init-data-node';
+import { User } from 'src/types/user.types';
+import { UpdateSettingDto } from './dto/update-setting.dto';
 
 @Injectable()
 export class UserService {
@@ -149,6 +151,15 @@ export class UserService {
       where: {
         id,
       },
+    });
+  }
+
+  async updateSetting(user: User, updateSettingDto: UpdateSettingDto) {
+    return await this.prismaService.setting.update({
+      where: {
+        id: user.setting.id,
+      },
+      data: updateSettingDto,
     });
   }
 }
