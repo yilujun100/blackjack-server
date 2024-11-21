@@ -2,15 +2,17 @@ import { HttpException, Injectable } from '@nestjs/common';
 import * as dayjs from 'dayjs';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { User } from 'src/types/user.types';
-import { CreateCheckinDto } from './dto/create-checkin.dto';
-import { UpdateCheckinDto } from './dto/update-checkin.dto';
+// import { CreateCheckinDto } from './dto/create-checkin.dto';
+// import { UpdateCheckinDto } from './dto/update-checkin.dto';
 
 @Injectable()
 export class CheckinService {
   constructor(private readonly prisma: PrismaService) {}
 
   private getReward(day: number): number {
-    const rewards = [100, 200, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000];
+    const rewards = [
+      100, 200, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 5000,
+    ];
     return day > 10 ? rewards[rewards.length - 1] : rewards[day - 1];
   }
 
@@ -38,7 +40,9 @@ export class CheckinService {
 
     // 计算连续签到天数
     const lastDate = lastRecord ? dayjs(lastRecord.createdAt) : null;
-    const isConsecutive = lastDate ? today.subtract(1, 'day').isSame(lastDate, 'day') : false;
+    const isConsecutive = lastDate
+      ? today.subtract(1, 'day').isSame(lastDate, 'day')
+      : false;
     const nextDay = isConsecutive ? lastRecord.day + 1 : 1;
     const reward = this.getReward(nextDay);
 
@@ -52,6 +56,19 @@ export class CheckinService {
           },
         }),
         // TODO: 增加用户资产
+        prisma.asset.update({
+          where: {
+            userId_type: {
+              userId: user.user.id,
+              type: 'jack',
+            },
+          },
+          data: {
+            amount: {
+              increment: reward,
+            },
+          },
+        }),
       ]);
     });
 
@@ -66,7 +83,7 @@ export class CheckinService {
     });
   }
 
-  create(createCheckinDto: CreateCheckinDto) {
+  /* create(createCheckinDto: CreateCheckinDto) {
     return 'This action adds a new checkin';
   }
 
@@ -84,5 +101,5 @@ export class CheckinService {
 
   remove(id: number) {
     return `This action removes a #${id} checkin`;
-  }
+  } */
 }
