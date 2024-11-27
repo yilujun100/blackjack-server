@@ -1,6 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { TaskService } from './task.service';
-import { ApiSecurity} from '@nestjs/swagger';
+import { ApiSecurity } from '@nestjs/swagger';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/types/user.types';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -25,7 +33,7 @@ export class TaskController {
   check(@CurrentUser() user: User, @Body('id') id: string) {
     return this.taskService.check(user, id);
   }
-  
+
   @Post()
   create(@Body() createTaskDto: CreateTaskDto) {
     return this.taskService.create(createTaskDto);

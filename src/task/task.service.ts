@@ -1,6 +1,9 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { Task, TaskRecord } from '@prisma/client';
 import * as dayjs from 'dayjs';
+import { AssetService } from 'src/asset/asset.service';
+import { Type } from 'src/asset/dto/transfer.dto';
+import { CheckinService } from 'src/checkin/checkin.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { User } from 'src/types/user.types';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -8,7 +11,11 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 
 @Injectable()
 export class TaskService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assetService: AssetService,
+    private readonly checkinService: CheckinService,
+  ) {}
 
   // 获取用户所有任务，并包括任务状态
   async findAll(user: User): Promise<(Task & { status: string })[]> {
@@ -147,6 +154,16 @@ export class TaskService {
         throw new HttpException('Task not checked.', 400);
       }
     }
+    const [fromAsset, toAsset] = await Promise.all([
+      this.prisma.asset.findUnique({
+        where: {
+          userId_type: { userId: process.env.SYSTEM_USER_ID, type: 'jack' },
+        },
+      }),
+      this.prisma.asset.findUnique({
+        where: { userId_type: { userId: user.user.id, type: 'jack' } },
+      }),
+    ]);
     const [taskRecord] = await this.prisma.$transaction(async (prisma) => {
       return await Promise.all([
         prisma.taskRecord.update({
@@ -157,7 +174,17 @@ export class TaskService {
             status: 'completed',
           },
         }),
-        // TODO: 增加用户资产
+        this.assetService.transfer({
+          from_user_id: 'system',
+          to_user_id: user.user.id,
+          token: 'jack',
+          amount: task.reward,
+          fromVersion: fromAsset.version,
+          toVersion: toAsset.version,
+          type: Type.Task,
+          remark: `task id: ${id}`,
+        }),
+        this.checkinService.checkin(user),
       ]);
     });
 

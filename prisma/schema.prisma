@@ -47,10 +47,11 @@ model Level {
 }
 
 model Asset {
-  id     String @id @default(uuid())
-  userId String
-  type   String // jack
-  amount Float
+  id      String @id @default(uuid())
+  userId  String
+  type    String // jack
+  amount  Float
+  version Int @default(0) 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -164,17 +165,18 @@ model TaskRecord {
   @@index([taskId])
 }
 
-model TransferQueue {
-  id        String @id @default(uuid())
-  fromId    String
-  toId      String
-  assetType String // jack
-  amount    Float
-  status    String // pending, success, failed
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([fromId])
-  @@index([toId])
+model AssetTransferTemp {
+  transfer_id         String @id @default(uuid())
+  from_user_id        String
+  to_user_id          String
+  token               String
+  amount              Float
+  from_before_amount  Float
+  from_after_amount   Float
+  to_before_amount    Float
+  to_after_amount     Float
+  type                String
+  remark              String
+  is_handled          Boolean   @default(false)
+  created_at          DateTime  @default(now())
 }

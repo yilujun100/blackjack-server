@@ -9,9 +9,13 @@ import { CheckinModule } from './checkin/checkin.module';
 import { TaskModule } from './task/task.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { DistributedLockModule } from './common/distributed-lock/distributed-lock.module';
+import { CassandraModule } from './common/cassandra/cassandra.module';
+import { AssetModule } from './asset/asset.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     RedisModule.forRoot({
       type: 'single',
       url: process.env.REDIS_URL,
@@ -21,6 +25,8 @@ import { DistributedLockModule } from './common/distributed-lock/distributed-loc
     UserModule,
     CheckinModule,
     TaskModule,
+    CassandraModule,
+    AssetModule,
   ],
   controllers: [AppController],
   providers: [AppService, UserService],

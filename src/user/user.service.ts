@@ -46,39 +46,40 @@ export class UserService {
       throw new HttpException('Invalid parameters', 400);
     } */
     const userId = v4();
-    const [user, authAccount, asset, setting] = await this.prismaService.$transaction(async (prisma) => {
-      return await Promise.all([
-        prisma.user.create({
-          data: {
-            id: userId,
-            exp: 0,
-            level: 1,
-            image: '',
-          },
-        }),
-        prisma.authAccount.create({
-          data: {
-            userId,
-            type: 'telegram',
-            identifier: createUserDto.data.id.toString(),
-            extraData: JSON.stringify(createUserDto),
-          },
-        }),
-        this.prismaService.asset.create({
-          data: {
-            userId,
-            type: 'jack',
-            amount: 0,
-          },
-        }),
-        this.prismaService.setting.create({
-          data: {
-            userId,
-            language: 'en',
-          },
-        }),
-      ]);
-    });
+    const [user, authAccount, asset, setting] =
+      await this.prismaService.$transaction(async (prisma) => {
+        return await Promise.all([
+          prisma.user.create({
+            data: {
+              id: userId,
+              exp: 0,
+              level: 1,
+              image: '',
+            },
+          }),
+          prisma.authAccount.create({
+            data: {
+              userId,
+              type: 'telegram',
+              identifier: createUserDto.data.id.toString(),
+              extraData: JSON.stringify(createUserDto),
+            },
+          }),
+          this.prismaService.asset.create({
+            data: {
+              userId,
+              type: 'jack',
+              amount: 0,
+            },
+          }),
+          this.prismaService.setting.create({
+            data: {
+              userId,
+              language: 'en',
+            },
+          }),
+        ]);
+      });
 
     return {
       user,
@@ -95,7 +96,7 @@ export class UserService {
   async findOne(initData: string) {
     const parsedInitData = parse(initData);
     this.validateInitData(initData);
-    
+
     const authAccount = await this.prismaService.authAccount.findUnique({
       where: {
         type_identifier: {
