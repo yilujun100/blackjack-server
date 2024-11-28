@@ -180,3 +180,26 @@ model AssetTransferTemp {
   is_handled          Boolean   @default(false)
   created_at          DateTime  @default(now())
 }
+
+model Room {
+  id        String    @id @default(uuid())
+  type      String    @default("public") // private, public
+  password  String?
+  status    String // waiting, playing, ended
+  level     Int
+  players   String[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Casino {
+  id        String  @id @default(uuid())
+  name      String  @unique
+  level     Int     @unique
+  minBet    Float
+  maxBet    Float
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}

@@ -12,9 +12,20 @@ import { DistributedLockModule } from './common/distributed-lock/distributed-loc
 import { CassandraModule } from './common/cassandra/cassandra.module';
 import { AssetModule } from './asset/asset.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { CasinoModule } from './casino/casino.module';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
 @Module({
   imports: [
+    CacheModule.registerAsync({
+      isGlobal: true,
+      useFactory: async () => ({
+        store: await redisStore({
+          url: process.env.REDIS_URL,
+        }),
+      }),
+    }),
     ScheduleModule.forRoot(),
     RedisModule.forRoot({
       type: 'single',
@@ -27,6 +38,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     TaskModule,
     CassandraModule,
     AssetModule,
+    CasinoModule,
   ],
   controllers: [AppController],
   providers: [AppService, UserService],
