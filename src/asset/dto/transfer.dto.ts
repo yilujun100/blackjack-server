@@ -4,6 +4,7 @@ export enum Type {
   Checkin = 'checkin',
   Task = 'task',
   Win = 'win',
+  Bet = 'bet',
 }
 
 export class TransferDto {

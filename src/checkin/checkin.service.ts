@@ -1,6 +1,6 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import * as dayjs from 'dayjs';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'src/common/prisma/prisma.service';
 import { User } from 'src/types/user.types';
 // import { CreateCheckinDto } from './dto/create-checkin.dto';
 // import { UpdateCheckinDto } from './dto/update-checkin.dto';

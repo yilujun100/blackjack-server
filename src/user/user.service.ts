@@ -1,7 +1,7 @@
 import { Injectable, HttpException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../common/prisma/prisma.service';
 import { v4 } from 'uuid';
 import { parse, validate } from '@telegram-apps/init-data-node';
 import { User } from 'src/types/user.types';

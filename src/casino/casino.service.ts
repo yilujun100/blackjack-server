@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Casino } from '@prisma/client';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'src/common/prisma/prisma.service';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Cron } from '@nestjs/schedule';
 

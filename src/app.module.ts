@@ -1,7 +1,7 @@
 import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { PrismaModule } from 'src/common/prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { AuthMiddleware } from './middleware/auth.middleware';
 import { UserService } from './user/user.service';
@@ -15,6 +15,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { CasinoModule } from './casino/casino.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { redisStore } from 'cache-manager-redis-yet';
     CassandraModule,
     AssetModule,
     CasinoModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [AppService, UserService],

@@ -4,7 +4,7 @@ import * as dayjs from 'dayjs';
 import { AssetService } from 'src/asset/asset.service';
 import { Type } from 'src/asset/dto/transfer.dto';
 import { CheckinService } from 'src/checkin/checkin.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'src/common/prisma/prisma.service';
 import { User } from 'src/types/user.types';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';

@@ -2,7 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { TransferDto } from './dto/transfer.dto';
 import { AssetTransferTemp, Prisma, PrismaClient } from '@prisma/client';
 import { DefaultArgs } from '@prisma/client/runtime/library';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from 'src/common/prisma/prisma.service';
 import { CassandraService } from 'src/common/cassandra/cassandra.service';
 import { mapping } from 'cassandra-driver';
 import { Cron } from '@nestjs/schedule';
