@@ -10,14 +10,24 @@ class PlayerData {
   amount: number;
 }
 
+enum PlayerActionType {
+  BET = 'bet',
+  HIT = 'hit',
+  STAND = 'stand',
+  INSURANCE = 'insurance',
+  DOUBLE = 'double',
+  SPLIT = 'split',
+  SURRENDER = 'surrender',
+}
+
 export class PlayerActionDto {
   @ApiProperty({
     description: '玩家操作类型',
-    example: 'bet',
-    enum: ['bet', 'hit', 'stand', 'insurance', 'double', 'split', 'surrender'],
+    example: PlayerActionType.BET,
+    enum: PlayerActionType,
   })
-  @IsEnum(['bet', 'hit', 'stand', 'insurance', 'double', 'split', 'surrender'])
-  type: 'bet';
+  @IsEnum(PlayerActionType)
+  type: PlayerActionType;
   @ApiProperty({
     description: '玩家相关信息',
   })

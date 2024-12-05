@@ -110,12 +110,13 @@ export class GameService {
     switch (playerActionDto.type) {
       case 'bet':
         return this.bet(user, server, playerActionDto);
+      case 'hit':
+        return this.hit(user, server);
     }
   }
 
   async bet(user: User, server: Server, playerActionDto: PlayerActionDto) {
     const { amount } = playerActionDto.data;
-    console.log('bet: ', user, amount);
 
     if (user.asset.amount < amount) {
       return this.errorResponse('Not enough money');
@@ -178,6 +179,117 @@ export class GameService {
           ? ['split']
           : ['hit', 'stand', 'double', 'surrender'],
     });
+  }
+
+  async hit(user: User, server: Server) {
+    const room = await this.prisma.room.findFirst({
+      where: { players: { hasSome: [user.user.id] }, status: 'playing' },
+    });
+    if (!room) {
+      return this.errorResponse('You are not in any  room');
+    }
+
+    const card = await this.deal(room.id, true, user.user.id);
+    server.emit('deal', {
+      isPlayer: true,
+      playerId: user.user.id,
+      card,
+    });
+    const result = await this.checkBustOrBlackjack(room.id, user.user.id);
+    const playerScore = this.calculateTotal(
+      await this.cacheManager.get<string[]>(`hand:${room.id}:${user.user.id}`),
+    );
+    const dealerScore = this.calculateTotal(
+      await this.cacheManager.get<string[]>(`hand:${room.id}:dealer`),
+    );
+    console.log('game result: ', result, playerScore, dealerScore);
+    if (result === 'bust') {
+      await this.gameover(
+        room.id,
+        user,
+        server,
+        'bust',
+        playerScore,
+        dealerScore,
+      );
+      return;
+    }
+    if (result === 'blackjack') {
+      await this.gameover(room.id, user, server, 'blackjack', 21, dealerScore);
+      return;
+    }
+    server.emit('actions', { data: ['hit', 'stand'] });
+  }
+
+  private async checkBustOrBlackjack(roomId: string, playerId: string) {
+    const handCards = await this.cacheManager.get<string[]>(
+      `hand:${roomId}:${playerId}`,
+    );
+    const total = this.calculateTotal(handCards);
+    if (total === 21) {
+      return 'blackjack';
+    }
+    if (total > 21) {
+      return 'bust';
+    }
+    return 'continue';
+  }
+
+  private calculateTotal(handCards: string[]) {
+    let total = 0;
+    let aceCount = 0;
+    for (const card of handCards) {
+      if (card === 'A') {
+        aceCount++;
+        total += 11;
+      } else if (['J', 'Q', 'K'].includes(card)) {
+        total += 10;
+      } else {
+        total += Number(card);
+      }
+    }
+    while (total > 21 && aceCount > 0) {
+      total -= 10;
+      aceCount--;
+    }
+    return total;
+  }
+
+  private async gameover(
+    roomId: string,
+    user: User,
+    server: Server,
+    status: 'bust' | 'blackjack' | 'win' | 'lose',
+    playerScore: number,
+    dealerScore: number,
+  ) {
+    if (status === 'blackjack' || status === 'win') {
+      // 将筹码转给玩家
+      const betAmount = server['bet-amount'];
+      await this.prisma.$transaction(async (prisma) => {
+        const systemBetAsset = await prisma.asset.findUnique({
+          where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+        });
+        await this.assetService.transfer(
+          {
+            from_user_id: SYSTEM_BET_ID,
+            to_user_id: user.user.id,
+            fromVersion: systemBetAsset.version,
+            toVersion: user.asset.version,
+            token: 'jack',
+            amount: betAmount * 2,
+            type: Type.Win,
+            remark: 'win',
+          },
+          prisma,
+        );
+      });
+    }
+    await Promise.all([
+      server.emit('game-over', { data: status }),
+      this.cacheManager.del(`hand:${roomId}:dealer`),
+      this.cacheManager.del(`hand:${roomId}:${user.user.id}`),
+    ]);
   }
 
   private async dealCards(roomId: string, playerId: string, server: Server) {
