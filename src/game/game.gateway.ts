@@ -28,12 +28,8 @@ export class GameGateway {
 
   @UseGuards(WsAuthGuard)
   @SubscribeMessage('join')
-  join(
-    @CurrentUser() user: User,
-    @ConnectedSocket() client: Socket,
-    @MessageBody('level') level: number,
-  ) {
-    return this.gameService.join(user, client, level);
+  join(@CurrentUser() user: User, @MessageBody('level') level: number) {
+    return this.gameService.join(user, this.server, level);
   }
 
   @SubscribeMessage('leave')
@@ -42,12 +38,12 @@ export class GameGateway {
   @SubscribeMessage('end')
   end() {}
 
+  @UseGuards(WsAuthGuard)
   @SubscribeMessage('playerAction')
   playerAction(
-    @ConnectedSocket() client: Socket,
     @CurrentUser() user: User,
     @MessageBody() playerActionDto: PlayerActionDto,
   ) {
-    return this.gameService.playerAction(user, client, playerActionDto);
+    return this.gameService.playerAction(user, this.server, playerActionDto);
   }
 }
