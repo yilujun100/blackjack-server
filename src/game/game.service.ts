@@ -8,6 +8,17 @@ import { Type } from 'src/asset/dto/transfer.dto';
 import { SYSTEM_BET_ID } from 'src/common/constance';
 import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { Server } from 'http';
+import { Room } from '@prisma/client';
+
+type Action =
+  | 'hit'
+  | 'stand'
+  | 'double'
+  | 'split'
+  | 'surrender'
+  | 'no-split'
+  | 'no-insurance'
+  | 'insurance';
 
 @Injectable()
 export class GameService {
@@ -204,7 +215,7 @@ export class GameService {
     );
     console.log('game result: ', result, playerScore, dealerScore);
     if (result === 'bust') {
-      await this.gameover(
+      await this.gameOver(
         room.id,
         user,
         server,
@@ -215,7 +226,7 @@ export class GameService {
       return;
     }
     if (result === 'blackjack') {
-      await this.gameover(room.id, user, server, 'blackjack', 21, dealerScore);
+      await this.gameOver(room.id, user, server, 'blackjack', 21, dealerScore);
       return;
     }
     server.emit('actions', { data: ['hit', 'stand'] });
@@ -255,14 +266,19 @@ export class GameService {
     return total;
   }
 
-  private async gameover(
+  private async gameOver(
     roomId: string,
     user: User,
     server: Server,
-    status: 'bust' | 'blackjack' | 'win' | 'lose',
+    status: 'bust' | 'blackjack' | 'win' | 'lose' | 'push',
     playerScore: number,
     dealerScore: number,
+    options: { hasInsurance: boolean; isSurround: boolean } = {
+      hasInsurance: false,
+      isSurround: false,
+    },
   ) {
+    const { hasInsurance, isSurround } = options;
     if (status === 'blackjack' || status === 'win') {
       // 将筹码转给玩家
       const betAmount = server['bet-amount'];
@@ -284,6 +300,71 @@ export class GameService {
           prisma,
         );
       });
+    }
+    if (status === 'push') {
+      const betAmount = server['bet-amount'];
+      await this.prisma.$transaction(async (prisma) => {
+        const systemBetAsset = await prisma.asset.findUnique({
+          where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+        });
+        await this.assetService.transfer(
+          {
+            from_user_id: SYSTEM_BET_ID,
+            to_user_id: user.user.id,
+            fromVersion: systemBetAsset.version,
+            toVersion: user.asset.version,
+            token: 'jack',
+            amount: betAmount,
+            type: Type.Win,
+            remark: 'win',
+          },
+          prisma,
+        );
+      });
+    }
+    if (status === 'lose') {
+      if (hasInsurance) {
+        const insuranceAmount = server['bet-amount'] / 2;
+        await this.prisma.$transaction(async (prisma) => {
+          const systemBetAsset = await prisma.asset.findUnique({
+            where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+          });
+          await this.assetService.transfer(
+            {
+              from_user_id: SYSTEM_BET_ID,
+              to_user_id: user.user.id,
+              fromVersion: systemBetAsset.version,
+              toVersion: user.asset.version,
+              token: 'jack',
+              amount: insuranceAmount,
+              type: Type.Win,
+              remark: 'win',
+            },
+            prisma,
+          );
+        });
+      }
+      if (isSurround) {
+        const betAmount = server['bet-amount'];
+        await this.prisma.$transaction(async (prisma) => {
+          const systemBetAsset = await prisma.asset.findUnique({
+            where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+          });
+          await this.assetService.transfer(
+            {
+              from_user_id: SYSTEM_BET_ID,
+              to_user_id: user.user.id,
+              fromVersion: systemBetAsset.version,
+              toVersion: user.asset.version,
+              token: 'jack',
+              amount: betAmount / 2,
+              type: Type.Win,
+              remark: 'win',
+            },
+            prisma,
+          );
+        });
+      }
     }
     await Promise.all([
       server.emit('game-over', { data: status }),
@@ -367,5 +448,215 @@ export class GameService {
       ),
     ]);
     return card;
+  }
+
+  private async checkResult(room: Room, user: User, server: Server) {
+    const dealerScore = this.calculateTotal(
+      await this.cacheManager.get<string[]>(`hand:${room.id}:dealer`),
+    );
+    const playerScore = this.calculateTotal(
+      await this.cacheManager.get<string[]>(`hand:${room.id}:${user.user.id}`),
+    );
+    if (playerScore === 21 && dealerScore !== 21) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'blackjack',
+        playerScore,
+        dealerScore,
+      );
+    }
+    if (playerScore > 21) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'bust',
+        playerScore,
+        dealerScore,
+      );
+    }
+    if (playerScore === dealerScore) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'push',
+        playerScore,
+        dealerScore,
+      );
+    }
+    if (dealerScore >= 17 && dealerScore > playerScore) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'lose',
+        playerScore,
+        dealerScore,
+      );
+    } else if (dealerScore >= 17 && dealerScore < playerScore) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'win',
+        playerScore,
+        dealerScore,
+      );
+    } else if (dealerScore > 21 && playerScore <= 21) {
+      await this.gameOver(
+        room.id,
+        user,
+        server,
+        'win',
+        playerScore,
+        dealerScore,
+      );
+    }
+  }
+
+  private async stand(user: User, server: Server) {
+    server['stand'] = true;
+    const room = await this.prisma.room.findFirst({
+      where: { players: { hasSome: [user.user.id] }, status: 'playing' },
+    });
+    if (!room) {
+      return this.errorResponse('You are not in any room');
+    }
+    while (
+      this.calculateTotal(
+        await this.cacheManager.get<string[]>(`hand:${room.id}:dealer`),
+      ) < 17
+    ) {
+      const card = await this.deal(room.id, false);
+      server.emit('deal', { isPlayer: false, card });
+    }
+    await this.checkResult(room, user, server);
+  }
+
+  private async sendActions(server: Server, actions: Action[]) {
+    await server.emit('actions', { data: actions });
+  }
+
+  async insurance(user: User, server: Server) {
+    if (server['insurance']) {
+      return this.errorResponse('You have already bought insurance');
+    }
+    const dealerHand = await this.cacheManager.get<string[]>(
+      `hand:${server['room'].id}:dealer`,
+    );
+    if (!dealerHand || dealerHand.length !== 2) {
+      return this.errorResponse('Dealer has not dealt cards yet');
+    }
+    if (dealerHand[1] !== 'A') {
+      return this.errorResponse('Dealer does not have an Ace');
+    }
+    const betAmount = server['bet-amount'];
+    const insuranceAmount = betAmount / 2;
+    if (user.asset.amount < insuranceAmount) {
+      return this.errorResponse('Not enough money');
+    }
+    await this.prisma.$transaction(async (prisma) => {
+      const systemBetAsset = await prisma.asset.findUnique({
+        where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+      });
+      await this.assetService.transfer(
+        {
+          from_user_id: user.user.id,
+          to_user_id: SYSTEM_BET_ID,
+          fromVersion: user.asset.version,
+          toVersion: systemBetAsset.version,
+          token: 'jack',
+          amount: insuranceAmount,
+          type: Type.Bet,
+          remark: 'insurance',
+        },
+        prisma,
+      );
+    });
+    server['insurance'] = true;
+    if (['10', 'J', 'Q', 'K'].includes(dealerHand[0])) {
+      return await this.gameOver(
+        server['room'].id,
+        user,
+        server,
+        'lose',
+        0,
+        21,
+        { hasInsurance: true, isSurround: false },
+      );
+    }
+    this.sendActions(server, ['hit', 'stand']);
+  }
+
+  async noInsurance(user: User, server: Server) {
+    if (server['insurance']) {
+      return this.errorResponse('You have already bought insurance');
+    }
+    const dealerHand = await this.cacheManager.get<string[]>(
+      `hand:${server['room'].id}:dealer`,
+    );
+    if (!dealerHand || dealerHand.length !== 2) {
+      return this.errorResponse('Dealer has not dealt cards yet');
+    }
+    if (
+      dealerHand[1] === 'A' &&
+      ['10', 'J', 'Q', 'K'].includes(dealerHand[0])
+    ) {
+      return await this.gameOver(
+        server['room'].id,
+        user,
+        server,
+        'lose',
+        0,
+        21,
+        { hasInsurance: false, isSurround: false },
+      );
+    }
+    this.sendActions(server, ['hit', 'stand']);
+  }
+
+  async surrender(user: User, server: Server) {
+    if (server['surrender']) {
+      return this.errorResponse('You have already surrendered');
+    }
+    server['surrender'] = true;
+    await this.gameOver(server['room'].id, user, server, 'lose', 0, 0, {
+      hasInsurance: false,
+      isSurround: true,
+    });
+  }
+
+  async double(user: User, server: Server) {
+    if (server['double']) {
+      return this.errorResponse('You have already doubled');
+    }
+    const betAmount = server['bet-amount'];
+    if (user.asset.amount < betAmount) {
+      return this.errorResponse('Not enough money');
+    }
+    await this.prisma.$transaction(async (prisma) => {
+      const systemBetAsset = await prisma.asset.findUnique({
+        where: { userId_type: { userId: SYSTEM_BET_ID, type: 'jack' } },
+      });
+      await this.assetService.transfer(
+        {
+          from_user_id: user.user.id,
+          to_user_id: SYSTEM_BET_ID,
+          fromVersion: user.asset.version,
+          toVersion: systemBetAsset.version,
+          token: 'jack',
+          amount: betAmount,
+          type: Type.Bet,
+          remark: 'double',
+        },
+        prisma,
+      );
+    });
+    server['doubled'] = true;
+    server['bet-amount'] *= 2;
+    this.hit(user, server);
   }
 }
